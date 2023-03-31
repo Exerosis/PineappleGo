@@ -47,7 +47,7 @@ type node[Type Modification] struct {
 	majority uint16
 }
 
-func NewNode[Type Modification](address string, addresses []string, storage Storage) Node[Type] {
+func NewNode[Type Modification](storage Storage, address string, addresses []string) Node[Type] {
 	var others []string
 	for _, other := range addresses {
 		if other != address {
@@ -231,7 +231,6 @@ func (node *node[Type]) Run() error {
 			atomic.StoreUint64(&node.server.committed, uint64(highest+1))
 		}
 	}()
-
 	listener, reason := net.Listen("tcp", node.address)
 	if reason != nil {
 		return fmt.Errorf("failed to listen: %v", reason)

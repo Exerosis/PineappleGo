@@ -50,13 +50,13 @@ func run() error {
 
 	var address = strings.Split(device.String(), "/")[0]
 	var addresses = []string{
-		"192.168.1.1",
-		"192.168.1.2",
-		"192.168.1.3",
+		"192.168.1.1:2000",
+		"192.168.1.2:2000",
+		"192.168.1.3:2000",
 	}
 
 	var storage = pineapple.NewStorage()
-	var node = pineapple.NewNode[Temp](address, addresses, storage)
+	var node = pineapple.NewNode[Temp](storage, address, addresses)
 	go func() {
 		reason := node.Run()
 		if reason != nil {
