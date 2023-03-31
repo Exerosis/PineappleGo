@@ -252,10 +252,15 @@ func (node *node[Type]) Run() error {
 }
 func (node *node[Type]) Connect() error {
 	//Connect to other nodes
-	var options = grpc.WithTransportCredentials(insecure.NewCredentials())
+	var options = []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	}
+	grpc.WaitForReady(true)
 	for i, other := range node.others {
 		for {
-			connection, reason := grpc.Dial(other, options)
+			connection, reason := grpc.Dial(other, options...)
+			//grpc.WaitForReady(true)
 			if reason == nil {
 				node.clients[i] = NewNodeClient(connection)
 				break
