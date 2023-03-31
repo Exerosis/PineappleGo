@@ -264,7 +264,9 @@ func (node *node[Type]) Connect() error {
 			return reason
 		}
 		node.clients[i] = NewNodeClient(connection)
+		println("Added and everything!")
 	}
+	println("Done trying to connect")
 	return nil
 }
 
