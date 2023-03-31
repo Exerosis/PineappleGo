@@ -1,4 +1,4 @@
-//go:generate sh ./run.sh
+//go:generate sh ./generate.sh
 package main
 
 import (
@@ -43,7 +43,7 @@ func run() error {
 	}
 
 	var storage = pineapple.NewStorage()
-	var node = pineapple.NewNode(address, addresses, storage)
+	var node = pineapple.NewNode[Temp](address, addresses, storage)
 	go func() {
 		reason := node.Run()
 		if reason != nil {
