@@ -256,18 +256,14 @@ func (node *node[Type]) Connect() error {
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	}
-	grpc.WaitForReady(true)
+	//grpc.WaitForReady(true)
 	for i, other := range node.others {
-		for {
-			connection, reason := grpc.Dial(other, options...)
-			//grpc.WaitForReady(true)
-			if reason == nil {
-				node.clients[i] = NewNodeClient(connection)
-				break
-			} else {
-				println("Timed out!")
-			}
+		println("other: ", other)
+		connection, reason := grpc.Dial(other, options...)
+		if reason != nil {
+			return reason
 		}
+		node.clients[i] = NewNodeClient(connection)
 	}
 	return nil
 }
