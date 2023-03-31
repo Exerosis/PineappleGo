@@ -152,7 +152,6 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		return client.Peek(ctx, request)
 	})
 	if reason != nil {
-		println("here we are")
 		return reason
 	}
 
@@ -258,15 +257,12 @@ func (node *node[Type]) Connect() error {
 	}
 	//grpc.WaitForReady(true)
 	for i, other := range node.others {
-		println("other: ", other)
 		connection, reason := grpc.Dial(other, options...)
 		if reason != nil {
 			return reason
 		}
 		node.clients[i] = NewNodeClient(connection)
-		println("Added and everything!")
 	}
-	println("Done trying to connect")
 	return nil
 }
 
