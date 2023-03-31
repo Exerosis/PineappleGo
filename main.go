@@ -73,6 +73,7 @@ func run() error {
 
 	reason = node.Write([]byte("hello"), []byte("world"))
 	if reason != nil {
+		println("error writing")
 		return reason
 	}
 	value, reason := node.Read([]byte("hello"))
