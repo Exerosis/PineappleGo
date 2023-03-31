@@ -69,6 +69,7 @@ func run() error {
 	if reason != nil {
 		return reason
 	}
+	println("Connected")
 
 	reason = node.Write([]byte("hello"), []byte("world"))
 	if reason != nil {
