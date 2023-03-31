@@ -25,6 +25,7 @@ type Node[Type Modification] interface {
 	Write(key []byte, value []byte) error
 	ReadModifyWrite(key []byte, modification Type) error
 	Run() error
+	Connect() error
 }
 
 type server struct {
@@ -209,25 +210,42 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 
 func (node *node[Type]) Run() error {
 	var group sync.WaitGroup
-	group.Add(1)
-	var reasons error
-
-	//Start server
 	go func() {
-		defer group.Done()
-		listener, reason := net.Listen("tcp", node.address)
-		if reason != nil {
-			reasons = fmt.Errorf("failed to listen: %v", reason)
-			return
-		}
-		server := grpc.NewServer()
-		RegisterNodeServer(server, node.server)
-		if reason := server.Serve(listener); reason != nil {
-			reasons = fmt.Errorf("failed to serve: %v", reason)
-			return
+		for {
+			time.Sleep(time.Millisecond)
+			var highest = atomic.LoadInt64(&node.server.highest)
+			for i := atomic.LoadUint64(&node.server.committed); int64(i) <= highest; i++ {
+				var slot = i % uint64(len(node.server.log))
+				var proposal = node.server.log[slot]
+				if proposal == nil {
+					highest = int64(i)
+					//if we hit the first unfilled slot stop
+					break
+				}
+				var revision, _ = node.server.Storage.Get(proposal.Key)
+				if revision < proposal.Revision {
+					node.server.Storage.Set(proposal.Key, proposal.Revision, proposal.Value)
+				}
+				node.server.log[slot] = nil
+			}
+			atomic.StoreUint64(&node.server.committed, uint64(highest+1))
 		}
 	}()
 
+	listener, reason := net.Listen("tcp", node.address)
+	if reason != nil {
+		return fmt.Errorf("failed to listen: %v", reason)
+	}
+	server := grpc.NewServer()
+	RegisterNodeServer(server, node.server)
+	if reason := server.Serve(listener); reason != nil {
+		return fmt.Errorf("failed to serve: %v", reason)
+	}
+
+	group.Wait()
+	return nil
+}
+func (node *node[Type]) Connect() error {
 	//Connect to other nodes
 	var options = grpc.WithTransportCredentials(insecure.NewCredentials())
 	for i, other := range node.others {
@@ -240,36 +258,10 @@ func (node *node[Type]) Run() error {
 			}
 		}
 	}
-
-	go func() {
-		var server = node.server
-		for {
-			time.Sleep(time.Millisecond)
-			var highest = atomic.LoadInt64(&server.highest)
-			for i := atomic.LoadUint64(&server.committed); int64(i) <= highest; i++ {
-				var slot = i % uint64(len(server.log))
-				var proposal = server.log[slot]
-				if proposal == nil {
-					highest = int64(i)
-					//if we hit the first unfilled slot stop
-					break
-				}
-				var revision, _ = server.Storage.Get(proposal.Key)
-				if revision < proposal.Revision {
-					server.Storage.Set(proposal.Key, proposal.Revision, proposal.Value)
-				}
-				server.log[slot] = nil
-			}
-			atomic.StoreUint64(&server.committed, uint64(highest+1))
-		}
-	}()
-
-	group.Wait()
-
 	for i, client := range node.clients {
 		fmt.Printf("%d: %d", i, client)
 	}
-	return reasons
+	return nil
 }
 
 func (server *server) Read(_ context.Context, request *ReadRequest) (*ReadResponse, error) {

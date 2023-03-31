@@ -64,6 +64,11 @@ func run() error {
 		}
 	}()
 
+	reason = node.Connect()
+	if reason != nil {
+		return reason
+	}
+
 	reason = node.Write([]byte("hello"), []byte("world"))
 	if reason != nil {
 		return reason
