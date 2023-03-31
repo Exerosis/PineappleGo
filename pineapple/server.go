@@ -254,10 +254,10 @@ func (node *node[Type]) Connect() error {
 	var options = grpc.WithTransportCredentials(insecure.NewCredentials())
 	for i, other := range node.others {
 		for {
-			println("lol")
 			connection, reason := grpc.Dial(other, options)
 			if reason == nil {
 				node.clients[i] = NewNodeClient(connection)
+				break
 			} else {
 				println("Timed out!")
 			}
