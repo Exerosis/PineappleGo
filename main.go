@@ -7,6 +7,7 @@ import (
 	"github.com/exerosis/PineappleGo/pineapple"
 	"net"
 	"strings"
+	"time"
 )
 
 type Temp struct {
@@ -81,6 +82,7 @@ func run() error {
 		return reason
 	}
 	println("Got: ", string(value))
+	time.Sleep(50 * time.Hour)
 	return nil
 }
 
