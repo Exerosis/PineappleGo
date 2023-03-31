@@ -152,6 +152,7 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		return client.Peek(ctx, request)
 	})
 	if reason != nil {
+		println("here we are")
 		return reason
 	}
 
