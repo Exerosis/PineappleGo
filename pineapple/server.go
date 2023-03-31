@@ -263,9 +263,6 @@ func (node *node[Type]) Connect() error {
 			}
 		}
 	}
-	for i, client := range node.clients {
-		fmt.Printf("%d: %d", i, client)
-	}
 	return nil
 }
 
