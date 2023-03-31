@@ -265,6 +265,10 @@ func (node *node[Type]) Run() error {
 	}()
 
 	group.Wait()
+
+	for i, client := range node.clients {
+		fmt.Printf("%d: %d", i, client)
+	}
 	return reasons
 }
 
