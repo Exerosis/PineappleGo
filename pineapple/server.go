@@ -63,14 +63,19 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 		uint64(0),
 		uint16(2345),
 	}
-	node.server = &server{Storage: storage, rmw: func(key []byte, request []byte) error {
-		var modification Type
-		var reason = modification.Unmarshal(request)
-		if reason != nil {
-			return reason
-		}
-		return node.ReadModifyWrite(key, modification)
-	}}
+	node.server = &server{
+		Storage: storage,
+		log:     make([]*ModifyRequest, 65536),
+		highest: -1,
+		rmw: func(key []byte, request []byte) error {
+			var modification Type
+			var reason = modification.Unmarshal(request)
+			if reason != nil {
+				return reason
+			}
+			return node.ReadModifyWrite(key, modification)
+		},
+	}
 	return node
 }
 
