@@ -56,7 +56,8 @@ func run() error {
 	}
 
 	var storage = pineapple.NewStorage()
-	var node = pineapple.NewNode[Temp](storage, address, addresses)
+	var local = fmt.Sprintf("%s:%d", address, 2000)
+	var node = pineapple.NewNode[Temp](storage, local, addresses)
 	go func() {
 		reason := node.Run()
 		if reason != nil {
