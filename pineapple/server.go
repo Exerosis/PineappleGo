@@ -137,6 +137,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 		}
 	}
 
+	println("max: ", max)
 	var write = &WriteRequest{Key: key, Revision: max, Value: responses[value].Value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
@@ -165,7 +166,7 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		}
 	}
 
-	var write = &WriteRequest{Key: key, Revision: max, Value: value}
+	var write = &WriteRequest{Key: key, Revision: max + 1, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
 	})
@@ -198,7 +199,7 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			}
 		}
 		var next = modification.Modify(responses[value].Value)
-		var request = &ModifyRequest{Key: key, Revision: max, Value: next, Slot: atomic.AddUint64(&node.slot, 1)}
+		var request = &ModifyRequest{Key: key, Revision: max + 1, Value: next, Slot: atomic.AddUint64(&node.slot, 1)}
 		_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ModifyResponse, error) {
 			return client.Modify(ctx, request)
 		})
