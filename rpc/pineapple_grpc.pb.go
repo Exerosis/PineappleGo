@@ -26,7 +26,6 @@ type NodeClient interface {
 	Peek(ctx context.Context, in *PeekRequest, opts ...grpc.CallOption) (*PeekResponse, error)
 	Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*WriteResponse, error)
 	Modify(ctx context.Context, in *ModifyRequest, opts ...grpc.CallOption) (*ModifyResponse, error)
-	Propose(ctx context.Context, in *ProposeRequest, opts ...grpc.CallOption) (*ProposeResponse, error)
 }
 
 type nodeClient struct {
@@ -73,15 +72,6 @@ func (c *nodeClient) Modify(ctx context.Context, in *ModifyRequest, opts ...grpc
 	return out, nil
 }
 
-func (c *nodeClient) Propose(ctx context.Context, in *ProposeRequest, opts ...grpc.CallOption) (*ProposeResponse, error) {
-	out := new(ProposeResponse)
-	err := c.cc.Invoke(ctx, "/Node/Propose", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // NodeServer is the server API for Node service.
 // All implementations must embed UnimplementedNodeServer
 // for forward compatibility
@@ -90,7 +80,6 @@ type NodeServer interface {
 	Peek(context.Context, *PeekRequest) (*PeekResponse, error)
 	Write(context.Context, *WriteRequest) (*WriteResponse, error)
 	Modify(context.Context, *ModifyRequest) (*ModifyResponse, error)
-	Propose(context.Context, *ProposeRequest) (*ProposeResponse, error)
 	mustEmbedUnimplementedNodeServer()
 }
 
@@ -109,9 +98,6 @@ func (UnimplementedNodeServer) Write(context.Context, *WriteRequest) (*WriteResp
 }
 func (UnimplementedNodeServer) Modify(context.Context, *ModifyRequest) (*ModifyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Modify not implemented")
-}
-func (UnimplementedNodeServer) Propose(context.Context, *ProposeRequest) (*ProposeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Propose not implemented")
 }
 func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
 
@@ -198,24 +184,6 @@ func _Node_Modify_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Node_Propose_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ProposeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NodeServer).Propose(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Node/Propose",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeServer).Propose(ctx, req.(*ProposeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Node_ServiceDesc is the grpc.ServiceDesc for Node service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -238,10 +206,6 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Modify",
 			Handler:    _Node_Modify_Handler,
-		},
-		{
-			MethodName: "Propose",
-			Handler:    _Node_Propose_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

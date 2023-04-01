@@ -9,8 +9,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	"sync"
-	"sync/atomic"
-	"time"
 )
 
 type Modification interface {
@@ -31,42 +29,43 @@ type Node[Type Modification] interface {
 type server struct {
 	UnimplementedNodeServer
 	Storage
-	log       []*ModifyRequest
-	committed uint64
-	highest   int64
-	rmw       func([]byte, []byte) error
+	rmw func([]byte, []byte) error
 }
 type node[Type Modification] struct {
-	address string
-	others  []string
-	leader  bool
-	server  *server
-	clients []NodeClient
-
-	slot     uint64
-	majority uint16
+	address    string
+	others     []string
+	leader     *sync.Mutex
+	server     *server
+	clients    []NodeClient
+	identifier uint8
+	majority   uint16
 }
 
 func NewNode[Type Modification](storage Storage, address string, addresses []string) Node[Type] {
 	var others []string
-	for _, other := range addresses {
+	var identifier = 0
+	for i, other := range addresses {
 		if other != address {
 			others = append(others, other)
+		} else {
+			identifier = i
 		}
+	}
+	var leader *sync.Mutex = nil
+	if addresses[0] == address {
+		leader = &sync.Mutex{}
 	}
 	var node = &node[Type]{
 		address,
 		others,
-		addresses[0] == address,
+		leader,
 		nil,
 		make([]NodeClient, len(others)),
-		uint64(0),
-		uint16(2345),
+		uint8(identifier),
+		uint16((len(addresses) / 2) + 1),
 	}
 	node.server = &server{
 		Storage: storage,
-		log:     make([]*ModifyRequest, 65536),
-		highest: -1,
 		rmw: func(key []byte, request []byte) error {
 			var modification Type
 			var reason = modification.Unmarshal(request)
@@ -115,6 +114,30 @@ func query[Type Modification, Result any](
 	return responses, nil
 }
 
+func max[Type any, Extracted any](
+	values []Type,
+	seed Extracted,
+	compare func(Extracted, Extracted) bool,
+	extract func(Type) Extracted,
+) Type {
+	var max = -1
+	for i, value := range values {
+		var extracted = extract(value)
+		if compare(seed, extracted) {
+			seed = extracted
+			max = i
+		}
+	}
+	return values[max]
+}
+
+func GreaterTag(first Tag, second Tag) bool {
+	if GetRevision(second) > GetRevision(first) {
+		return true
+	}
+	return GetIdentifier(second) > GetIdentifier(first)
+}
+
 func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	var request = &ReadRequest{Key: key}
 	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
@@ -125,20 +148,14 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	}
 	localRevision, localValue := node.server.Storage.Get(key)
 	responses = append(responses, &ReadResponse{
-		Revision: localRevision,
-		Value:    localValue,
+		Tag:   NewTag(localRevision, node.identifier),
+		Value: localValue,
 	})
-	var max = uint64(0)
-	var value = 0
-	for i, response := range responses {
-		if response.Revision > max {
-			max = response.Revision
-			value = i
-		}
-	}
-
-	println("max: ", max)
-	var write = &WriteRequest{Key: key, Revision: max, Value: responses[value].Value}
+	var max = max(responses, 0, GreaterTag, func(r *ReadResponse) Tag {
+		return r.GetTag()
+	})
+	println("identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
+	var write = &WriteRequest{Key: key, Tag: max.Tag, Value: max.Value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
 	})
@@ -157,16 +174,13 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 	}
 
 	responses = append(responses, &PeekResponse{
-		Revision: node.server.Storage.Peek(key),
+		Tag: node.server.Storage.Peek(key),
 	})
-	var max = uint64(0)
-	for _, response := range responses {
-		if response.Revision > max {
-			max = response.Revision
-		}
-	}
-
-	var write = &WriteRequest{Key: key, Revision: max + 1, Value: value}
+	var max = max(responses, 0, GreaterTag, func(r *PeekResponse) Tag {
+		return r.GetTag()
+	})
+	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
+	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
 	})
@@ -177,31 +191,35 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 }
 
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
-	if node.leader {
+	if node.leader != nil {
+		node.leader.Lock()
 		var readRequest = &ReadRequest{Key: key}
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
 			return client.Read(ctx, readRequest)
 		})
 		if reason != nil {
+			node.leader.Unlock()
 			return reason
 		}
+		//eventually optimize this to try the lock and keep local atomic count.
+		//that's effectively "pipelining" for abd
 		localRevision, localValue := node.server.Storage.Get(key)
 		responses = append(responses, &ReadResponse{
-			Revision: localRevision,
-			Value:    localValue,
+			Tag:   NewTag(localRevision, node.identifier),
+			Value: localValue,
 		})
-		var max = uint64(0)
-		var value = 0
-		for i, response := range responses {
-			if response.Revision > max {
-				max = response.Revision
-				value = i
-			}
-		}
-		var next = modification.Modify(responses[value].Value)
-		var request = &ModifyRequest{Key: key, Revision: max + 1, Value: next, Slot: atomic.AddUint64(&node.slot, 1)}
-		_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ModifyResponse, error) {
-			return client.Modify(ctx, request)
+		var max = max(responses, 0, GreaterTag, func(r *ReadResponse) Tag {
+			return r.GetTag()
+		})
+		var next = modification.Modify(max.Value)
+		var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
+		var request = &WriteRequest{Key: key, Tag: tag, Value: next}
+		node.server.Storage.Set(key, tag, next)
+		//we can let the next RMW get handled once we have done a storage set.
+		node.leader.Unlock()
+		//Method cannot return until we get the response here.
+		_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
+			return client.Write(ctx, request)
 		})
 		return reason
 	} else {
@@ -209,34 +227,13 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		if reason != nil {
 			return reason
 		}
-		_, reason = node.server.Propose(context.Background(), &ProposeRequest{Key: key, Request: serialized})
+		_, reason = node.server.Modify(context.Background(), &ModifyRequest{Key: key, Request: serialized})
 		return reason
 	}
 }
 
 func (node *node[Type]) Run() error {
 	var group sync.WaitGroup
-	go func() {
-		for {
-			time.Sleep(time.Millisecond)
-			var highest = atomic.LoadInt64(&node.server.highest)
-			for i := atomic.LoadUint64(&node.server.committed); int64(i) <= highest; i++ {
-				var slot = i % uint64(len(node.server.log))
-				var proposal = node.server.log[slot]
-				if proposal == nil {
-					highest = int64(i)
-					//if we hit the first unfilled slot stop
-					break
-				}
-				var revision, _ = node.server.Storage.Get(proposal.Key)
-				if revision < proposal.Revision {
-					node.server.Storage.Set(proposal.Key, proposal.Revision, proposal.Value)
-				}
-				node.server.log[slot] = nil
-			}
-			atomic.StoreUint64(&node.server.committed, uint64(highest+1))
-		}
-	}()
 	listener, reason := net.Listen("tcp", node.address)
 	if reason != nil {
 		return fmt.Errorf("failed to listen: %v", reason)
@@ -268,37 +265,23 @@ func (node *node[Type]) Connect() error {
 }
 
 func (server *server) Read(_ context.Context, request *ReadRequest) (*ReadResponse, error) {
-	revision, value := server.Get(request.Key)
-	return &ReadResponse{Revision: revision, Value: value}, nil
+	tag, value := server.Get(request.Key)
+	return &ReadResponse{Tag: tag, Value: value}, nil
 }
 func (server *server) Peek(_ context.Context, request *PeekRequest) (*PeekResponse, error) {
-	return &PeekResponse{Revision: server.Storage.Peek(request.Key)}, nil
+	return &PeekResponse{Tag: server.Storage.Peek(request.Key)}, nil
 }
 func (server *server) Write(_ context.Context, request *WriteRequest) (*WriteResponse, error) {
-	server.Set(request.Key, request.Revision, request.Value)
+	var current = server.Storage.Peek(request.Key)
+	if GreaterTag(current, request.Tag) {
+		server.Set(request.Key, request.Tag, request.Value)
+	}
 	return &WriteResponse{}, nil
 }
 func (server *server) Modify(_ context.Context, request *ModifyRequest) (*ModifyResponse, error) {
-	//have to figure out where to mark slots as empty safely.
-	var committed = atomic.LoadUint64(&server.committed)
-	//have to wait here until the next slot has been consumed
-	if request.Slot-committed >= uint64(len(server.log)) {
-		for request.Slot-committed >= uint64(len(server.log)) {
-			committed = atomic.LoadUint64(&server.committed)
-		}
-		println("Thank you! I was turbo wrapping :(")
-	}
-	server.log[request.Slot%uint64(len(server.log))] = request
-	var value = atomic.LoadInt64(&server.highest)
-	for value < int64(request.Slot) && !atomic.CompareAndSwapInt64(&server.highest, value, int64(request.Slot)) {
-		value = atomic.LoadInt64(&server.highest)
-	}
-	return &ModifyResponse{}, nil
-}
-func (server *server) Propose(_ context.Context, request *ProposeRequest) (*ProposeResponse, error) {
 	var reason = server.rmw(request.Key, request.Request)
 	if reason != nil {
 		return nil, reason
 	}
-	return &ProposeResponse{}, nil
+	return &ModifyResponse{}, nil
 }

@@ -7,14 +7,13 @@ service Node {
   rpc Peek(PeekRequest) returns (PeekResponse) {}
   rpc Write(WriteRequest) returns (WriteResponse) {}
   rpc Modify(ModifyRequest) returns (ModifyResponse) {}
-  rpc Propose(ProposeRequest) returns (ProposeResponse) {}
 }
 
 message ReadRequest {
   bytes key = 1;
 }
 message ReadResponse {
-  uint64 revision = 1;
+  uint64 tag = 1;
   bytes value = 2;
 }
 
@@ -22,28 +21,20 @@ message PeekRequest {
   bytes key = 1;
 }
 message PeekResponse {
-  uint64 revision = 1;
+  uint64 tag = 1;
 }
 
 message WriteRequest {
   bytes key = 1;
-  uint64 revision = 2;
+  uint64 tag = 2;
   bytes value = 3;
 }
 message WriteResponse {}
 
 message ModifyRequest {
   bytes key = 1;
-  uint64 revision = 2;
-  bytes value = 3;
-  uint64 slot = 4;
-}
-message ModifyResponse {}
-
-message ProposeRequest {
-  bytes key = 1;
   bytes request = 2;
 }
-message ProposeResponse {
+message ModifyResponse {
 //  bytes response = 1;
 }
