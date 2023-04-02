@@ -116,12 +116,12 @@ func query[Type Modification, Result any](
 
 func max[Type any, Extracted any](
 	values []Type,
-	seed Extracted,
 	compare func(Extracted, Extracted) bool,
 	extract func(Type) Extracted,
 ) Type {
-	var max = -1
-	for i, value := range values {
+	var seed = extract(values[0])
+	var max = 0
+	for i, value := range values[1:] {
 		var extracted = extract(value)
 		if compare(seed, extracted) {
 			seed = extracted
@@ -151,7 +151,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 		Tag:   NewTag(localRevision, node.identifier),
 		Value: localValue,
 	})
-	var max = max(responses, 0, GreaterTag, func(r *ReadResponse) Tag {
+	var max = max(responses, GreaterTag, func(r *ReadResponse) Tag {
 		return r.GetTag()
 	})
 	println("identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
@@ -176,7 +176,7 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 	responses = append(responses, &PeekResponse{
 		Tag: node.server.Storage.Peek(key),
 	})
-	var max = max(responses, 0, GreaterTag, func(r *PeekResponse) Tag {
+	var max = max(responses, GreaterTag, func(r *PeekResponse) Tag {
 		return r.GetTag()
 	})
 	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
@@ -208,7 +208,7 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			Tag:   NewTag(localRevision, node.identifier),
 			Value: localValue,
 		})
-		var max = max(responses, 0, GreaterTag, func(r *ReadResponse) Tag {
+		var max = max(responses, GreaterTag, func(r *ReadResponse) Tag {
 			return r.GetTag()
 		})
 		var next = modification.Modify(max.Value)
