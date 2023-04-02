@@ -154,7 +154,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	var max = max(responses, GreaterTag, func(r *ReadResponse) Tag {
 		return r.GetTag()
 	})
-	println("identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
+	println("read  -> identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
 	var write = &WriteRequest{Key: key, Tag: max.Tag, Value: max.Value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
@@ -180,6 +180,7 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		return r.GetTag()
 	})
 	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
+	println("read  -> identifier: ", GetIdentifier(tag), " revision: ", GetRevision(tag))
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
