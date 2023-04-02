@@ -179,8 +179,9 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 	var max = max(responses, GreaterTag, func(r *PeekResponse) Tag {
 		return r.GetTag()
 	})
+	println("write0  -> identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
 	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
-	println("read  -> identifier: ", GetIdentifier(tag), " revision: ", GetRevision(tag))
+	println("write1  -> identifier: ", GetIdentifier(tag), " revision: ", GetRevision(tag))
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
