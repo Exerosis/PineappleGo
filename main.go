@@ -75,7 +75,7 @@ func run() error {
 		return reason
 	}
 	println("Got: ", string(value))
-	time.Sleep(50 * time.Hour)
+	time.Sleep(24 * time.Hour)
 	return nil
 }
 
