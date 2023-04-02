@@ -216,12 +216,14 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		})
 		return reason
 	} else {
-		serialized, reason := modification.Marshal()
-		if reason != nil {
-			return reason
-		}
-		_, reason = node.server.Modify(context.Background(), &ModifyRequest{Key: key, Request: serialized})
-		return reason
+		//serialized, reason := modification.Marshal()
+		//if reason != nil {
+		//	return reason
+		//}
+		//_, reason = node.server.Modify(context.Background(), &ModifyRequest{Key: key, Request: serialized})
+		//return reason
+		println("I'm not leader :)")
+		return nil
 	}
 }
 
