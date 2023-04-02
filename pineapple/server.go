@@ -211,8 +211,10 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		})
 		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 		var next = modification.Modify(max.Value)
-		if !bytes.Equal(max.Value, next) {
-			println("DIDN'T CHANGE")
+		//hyper-speed path
+		if bytes.Equal(max.Value, next) {
+			node.leader.Unlock()
+			return nil
 		}
 		var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
 		var request = &WriteRequest{Key: key, Tag: tag, Value: next}
