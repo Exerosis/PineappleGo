@@ -64,11 +64,11 @@ func run() error {
 		return reason
 	}
 
-	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
-	reason = node.ReadModifyWrite([]byte("hello"), cas)
-	if reason != nil {
-		return reason
-	}
+	//var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
+	//reason = node.ReadModifyWrite([]byte("hello"), cas)
+	//if reason != nil {
+	//	return reason
+	//}
 
 	value, reason := node.Read([]byte("hello"))
 	if reason != nil {

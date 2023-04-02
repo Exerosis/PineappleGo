@@ -197,8 +197,6 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			node.leader.Unlock()
 			return reason
 		}
-		//eventually optimize this to try the lock and keep local atomic count.
-		//that's effectively "pipelining" for abd
 		localRevision, localValue := node.server.Storage.Get(key)
 		responses = append(responses, &ReadResponse{
 			Tag:   NewTag(localRevision, node.identifier),
