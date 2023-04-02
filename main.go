@@ -4,7 +4,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/exerosis/PineappleGo/pineapple"
+	pineapple "github.com/exerosis/PineappleGo/pineapple"
 	"net"
 	"strings"
 	"time"
@@ -45,7 +45,7 @@ func run() error {
 
 	var storage = pineapple.NewStorage()
 	var local = fmt.Sprintf("%s:%d", address, 2000)
-	var node = pineapple.NewNode[Cas](storage, local, addresses)
+	var node = pineapple.NewNode[pineapple.Cas](storage, local, addresses)
 	go func() {
 		reason := node.Run()
 		if reason != nil {
@@ -64,7 +64,7 @@ func run() error {
 		return reason
 	}
 
-	var cas = NewCas([]byte("world"), []byte("universe"))
+	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
 	reason = node.ReadModifyWrite([]byte("hello"), cas)
 	if reason != nil {
 		return reason
