@@ -170,10 +170,6 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	return write.Value, nil
 }
 func (node *node[Type]) Write(key []byte, value []byte) error {
-	println("Doing write ig??")
-	for i, client := range node.clients {
-		println("index: ", i, " client: ", client)
-	}
 	var request = &PeekRequest{Key: key}
 	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
 		return client.Peek(ctx, request)
@@ -201,9 +197,6 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
 		node.leader.Lock()
 		var readRequest = &ReadRequest{Key: key}
-		for i, client := range node.clients {
-			println("index: ", i, " client: ", client)
-		}
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
 			return client.Read(ctx, readRequest)
 		})
