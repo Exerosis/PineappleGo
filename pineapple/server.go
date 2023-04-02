@@ -190,10 +190,10 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
 		node.leader.Lock()
 		var readRequest = &ReadRequest{Key: key}
+		for i, client := range node.clients {
+			println("index: ", i, " client: ", client)
+		}
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
-			if client == nil {
-				println("Wtf??")
-			}
 			return client.Read(ctx, readRequest)
 		})
 		if reason != nil {
