@@ -1,6 +1,7 @@
 package pineapple
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	. "github.com/exerosis/PineappleGo/rpc"
@@ -205,6 +206,9 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		})
 		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 		var next = modification.Modify(max.Value)
+		if !bytes.Equal(max.Value, next) {
+			println("DIDN'T CHANGE")
+		}
 		var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
 		var request = &WriteRequest{Key: key, Tag: tag, Value: next}
 		node.server.Storage.Set(key, tag, next)
@@ -216,14 +220,13 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		})
 		return reason
 	} else {
-		//serialized, reason := modification.Marshal()
-		//if reason != nil {
-		//	return reason
-		//}
-		//_, reason = node.server.Modify(context.Background(), &ModifyRequest{Key: key, Request: serialized})
-		//return reason
-		println("I'm not leader :)")
-		return nil
+		serialized, reason := modification.Marshal()
+		println("We got here before dying")
+		if reason != nil {
+			return reason
+		}
+		_, reason = node.server.Modify(context.Background(), &ModifyRequest{Key: key, Request: serialized})
+		return reason
 	}
 }
 
