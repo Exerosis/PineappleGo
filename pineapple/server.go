@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"net"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 type Modification interface {
@@ -40,6 +42,7 @@ type node[Type Modification] struct {
 	clients    []NodeClient
 	identifier uint8
 	majority   uint16
+	connected  atomic.Bool
 }
 
 func NewNode[Type Modification](storage Storage, address string, addresses []string) Node[Type] {
@@ -64,10 +67,14 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 		make([]NodeClient, len(others)),
 		uint8(identifier),
 		uint16((len(addresses) / 2) + 1),
+		atomic.Bool{},
 	}
 	node.server = &server{
 		Storage: storage,
 		rmw: func(key []byte, request []byte) error {
+			for !node.connected.Load() {
+				time.Sleep(time.Millisecond)
+			}
 			var modification Type
 			var reason = modification.Unmarshal(request)
 			if reason != nil {
@@ -163,6 +170,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	return write.Value, nil
 }
 func (node *node[Type]) Write(key []byte, value []byte) error {
+	println("Doing write ig??")
 	for i, client := range node.clients {
 		println("index: ", i, " client: ", client)
 	}
@@ -262,6 +270,7 @@ func (node *node[Type]) Connect() error {
 		}
 		node.clients[i] = NewNodeClient(connection)
 	}
+	node.connected.Store(true)
 	return nil
 }
 
