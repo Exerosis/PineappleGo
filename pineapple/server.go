@@ -151,10 +151,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 		Tag:   NewTag(localRevision, node.identifier),
 		Value: localValue,
 	})
-	var max = max(responses, GreaterTag, func(r *ReadResponse) Tag {
-		return r.GetTag()
-	})
-	println("read  -> identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
+	var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 	var write = &WriteRequest{Key: key, Tag: max.Tag, Value: max.Value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
@@ -176,12 +173,8 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 	responses = append(responses, &PeekResponse{
 		Tag: node.server.Storage.Peek(key),
 	})
-	var max = max(responses, GreaterTag, func(r *PeekResponse) Tag {
-		return r.GetTag()
-	})
-	println("write0  -> identifier: ", GetIdentifier(max.Tag), " revision: ", GetRevision(max.Tag))
+	var max = max(responses, GreaterTag, (*PeekResponse).GetTag)
 	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
-	println("write1  -> identifier: ", GetIdentifier(tag), " revision: ", GetRevision(tag))
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
@@ -210,9 +203,7 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			Tag:   NewTag(localRevision, node.identifier),
 			Value: localValue,
 		})
-		var max = max(responses, GreaterTag, func(r *ReadResponse) Tag {
-			return r.GetTag()
-		})
+		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 		var next = modification.Modify(max.Value)
 		var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
 		var request = &WriteRequest{Key: key, Tag: tag, Value: next}

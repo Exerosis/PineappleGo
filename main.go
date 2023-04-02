@@ -10,19 +10,6 @@ import (
 	"time"
 )
 
-type Temp struct {
-}
-
-func (t Temp) Modify([]byte) []byte {
-	panic("implement me")
-}
-func (t Temp) Marshal() ([]byte, error) {
-	panic("implement me")
-}
-func (t Temp) Unmarshal([]byte) error {
-	panic("implement me")
-}
-
 func run() error {
 	interfaces, reason := net.Interfaces()
 	if reason != nil {
@@ -58,7 +45,7 @@ func run() error {
 
 	var storage = pineapple.NewStorage()
 	var local = fmt.Sprintf("%s:%d", address, 2000)
-	var node = pineapple.NewNode[Temp](storage, local, addresses)
+	var node = pineapple.NewNode[Cas](storage, local, addresses)
 	go func() {
 		reason := node.Run()
 		if reason != nil {
@@ -76,6 +63,13 @@ func run() error {
 	if reason != nil {
 		return reason
 	}
+
+	var cas = NewCas([]byte("world"), []byte("universe"))
+	reason = node.ReadModifyWrite([]byte("hello"), cas)
+	if reason != nil {
+		return reason
+	}
+
 	value, reason := node.Read([]byte("hello"))
 	if reason != nil {
 		return reason
