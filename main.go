@@ -68,7 +68,7 @@ func run() error {
 		}
 	}
 	var took = float64(count) / time.Since(start).Seconds()
-	fmt.Printf("%0.2f ops/s", took)
+	fmt.Printf("%0.2f ops/s\n", took)
 
 	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
 	reason = node.ReadModifyWrite([]byte("hello"), cas)
