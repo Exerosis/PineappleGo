@@ -7,7 +7,6 @@ import (
 	"github.com/exerosis/PineappleGo/pineapple"
 	"net"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -60,23 +59,31 @@ func run() error {
 	}
 	println("Connected")
 
-	var start = time.Now()
-	var count = 10_000
-	var group sync.WaitGroup
-	group.Add(count)
-	for i := 0; i < count; i++ {
-		go func() {
-			defer group.Done()
-			var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
-			reason = node.ReadModifyWrite([]byte("hello"), cas)
+	if strings.Contains(address, "192.168.1.1") {
+		var start = time.Now()
+		var count = 10_000
+		for i := 0; i < count; i++ {
+			reason := node.Write([]byte("world"), []byte("universe"))
 			if reason != nil {
-				panic(reason)
+				return reason
 			}
-		}()
+		}
+		//var group sync.WaitGroup
+		//group.Add(count)
+		//for i := 0; i < count; i++ {
+		//	go func() {
+		//		defer group.Done()
+		//		var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
+		//		reason = node.ReadModifyWrite([]byte("hello"), cas)
+		//		if reason != nil {
+		//			panic(reason)
+		//		}
+		//	}()
+		//}
+		//group.Wait()
+		var took = float64(count) / time.Since(start).Seconds()
+		fmt.Printf("%0.2f ops/s\n", took)
 	}
-	group.Wait()
-	var took = float64(count) / time.Since(start).Seconds()
-	fmt.Printf("%0.2f ops/s\n", took)
 
 	time.Sleep(48 * time.Hour)
 	return nil
