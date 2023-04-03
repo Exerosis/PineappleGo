@@ -60,7 +60,7 @@ func run() error {
 	println("Connected")
 
 	var start = time.Now()
-	var count = 100_000
+	var count = 10_000
 	for i := 0; i < count; i++ {
 		_, reason := node.Read([]byte("hello"))
 		if reason != nil {
