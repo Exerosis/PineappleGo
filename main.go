@@ -4,7 +4,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	pineapple "github.com/exerosis/PineappleGo/pineapple"
+	"github.com/exerosis/PineappleGo/pineapple"
 	"net"
 	"strings"
 	"time"
@@ -59,10 +59,15 @@ func run() error {
 	}
 	println("Connected")
 
-	reason = node.Write([]byte("hello"), []byte("world"))
-	if reason != nil {
-		return reason
+	var start = time.Now()
+	for i := 0; i < 100_000; i++ {
+		reason = node.Write([]byte("hello"), []byte("world"))
+		if reason != nil {
+			return reason
+		}
 	}
+	var took = time.Since(start).Seconds() / 100_000
+	fmt.Printf("%0.2f", took)
 
 	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
 	reason = node.ReadModifyWrite([]byte("hello"), cas)
