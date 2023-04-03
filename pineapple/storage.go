@@ -1,5 +1,7 @@
 package pineapple
 
+import "sync"
+
 type Storage interface {
 	Get(key []byte) (tag Tag, value []byte)
 	Peek(key []byte) Tag
@@ -13,23 +15,30 @@ type entry struct {
 
 type storage struct {
 	backing map[string]entry
+	lock    sync.RWMutex
 }
 
 func (s *storage) Get(key []byte) (Tag, []byte) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	var tag = s.backing[string(key)]
 	return tag.tag, tag.value
 }
 
 func (s *storage) Peek(key []byte) Tag {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	return s.backing[string(key)].tag
 }
 
 func (s *storage) Set(key []byte, tag Tag, value []byte) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.backing[string(key)] = entry{value, tag}
 }
 
 func NewStorage() Storage {
-	return &storage{make(map[string]entry)}
+	return &storage{backing: make(map[string]entry)}
 }
 
 type Tag = uint64
