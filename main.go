@@ -74,11 +74,15 @@ func run() error {
 		for i := 0; i < count; i++ {
 			go func() {
 				defer group.Done()
-				var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
-				reason = node.ReadModifyWrite([]byte("hello"), cas)
+				reason := node.Write([]byte("world"), []byte("universe"))
 				if reason != nil {
 					panic(reason)
 				}
+				//var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
+				//reason = node.ReadModifyWrite([]byte("hello"), cas)
+				//if reason != nil {
+				//	panic(reason)
+				//}
 			}()
 		}
 		group.Wait()
