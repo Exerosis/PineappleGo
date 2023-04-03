@@ -67,7 +67,7 @@ func run() error {
 			return reason
 		}
 	}
-	var took = time.Since(start).Seconds() / float64(count)
+	var took = time.Since(start).Seconds()
 	fmt.Printf("%0.2f", took)
 
 	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
