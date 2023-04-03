@@ -62,7 +62,7 @@ func run() error {
 	var start = time.Now()
 	var count = 100_000
 	for i := 0; i < count; i++ {
-		reason = node.Write([]byte("hello"), []byte("world"))
+		_, reason := node.Read([]byte("hello"))
 		if reason != nil {
 			return reason
 		}
@@ -70,17 +70,6 @@ func run() error {
 	var took = float64(count) / time.Since(start).Seconds()
 	fmt.Printf("%0.2f ops/s\n", took)
 
-	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
-	reason = node.ReadModifyWrite([]byte("hello"), cas)
-	if reason != nil {
-		return reason
-	}
-
-	value, reason := node.Read([]byte("hello"))
-	if reason != nil {
-		return reason
-	}
-	println("Got: ", string(value))
 	time.Sleep(48 * time.Hour)
 	return nil
 }
