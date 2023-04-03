@@ -60,15 +60,15 @@ func run() error {
 	println("Connected")
 
 	var start = time.Now()
-	var count = 1000
+	var count = 10_000
 	for i := 0; i < count; i++ {
 		reason = node.Write([]byte("hello"), []byte("world"))
 		if reason != nil {
 			return reason
 		}
 	}
-	var took = time.Since(start).Seconds()
-	fmt.Printf("%0.2f", took)
+	var took = float64(count) / time.Since(start).Seconds()
+	fmt.Printf("%0.2f ops/s", took)
 
 	var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
 	reason = node.ReadModifyWrite([]byte("hello"), cas)
