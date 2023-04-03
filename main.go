@@ -62,7 +62,7 @@ func run() error {
 
 	if strings.Contains(address, "192.168.1.1") {
 		var start = time.Now()
-		var count = 10_000
+		var count = 1_000_000
 		//for i := 0; i < count; i++ {
 		//	reason := node.Write([]byte("world"), []byte("universe"))
 		//	if reason != nil {
