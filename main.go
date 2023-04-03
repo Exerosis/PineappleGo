@@ -62,7 +62,8 @@ func run() error {
 	var start = time.Now()
 	var count = 10_000
 	for i := 0; i < count; i++ {
-		_, reason := node.Read([]byte("hello"))
+		var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
+		reason = node.ReadModifyWrite([]byte("hello"), cas)
 		if reason != nil {
 			return reason
 		}
