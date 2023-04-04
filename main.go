@@ -70,9 +70,12 @@ func run() error {
 		//	}
 		//}
 		var group sync.WaitGroup
+		var pipes = NewSemaphore(100)
 		group.Add(count)
 		for i := 0; i < count; i++ {
 			go func() {
+				pipes.Acquire()
+				defer pipes.Release()
 				defer group.Done()
 				//reason := node.Write([]byte("world"), []byte("universe"))
 				//if reason != nil {
