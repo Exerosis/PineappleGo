@@ -1,4 +1,4 @@
-package main
+package pineapple
 
 type Semaphore chan struct{}
 
