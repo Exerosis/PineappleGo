@@ -63,12 +63,6 @@ func run() error {
 	if strings.Contains(address, "192.168.1.1") {
 		var start = time.Now()
 		var count = 100_000
-		//for i := 0; i < count; i++ {
-		//	reason := node.Write([]byte("world"), []byte("universe"))
-		//	if reason != nil {
-		//		return reason
-		//	}
-		//}
 		var group sync.WaitGroup
 		var pipes = NewSemaphore(100)
 		group.Add(count)
@@ -77,15 +71,15 @@ func run() error {
 				pipes.Acquire()
 				defer pipes.Release()
 				defer group.Done()
-				//reason := node.Write([]byte("world"), []byte("universe"))
-				//if reason != nil {
-				//	panic(reason)
-				//}
-				var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
-				reason = node.ReadModifyWrite([]byte("hello"), cas)
+				reason := node.Write([]byte("world"), []byte("universe"))
 				if reason != nil {
 					panic(reason)
 				}
+				//var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
+				//reason = node.ReadModifyWrite([]byte("hello"), cas)
+				//if reason != nil {
+				//	panic(reason)
+				//}
 			}()
 		}
 		group.Wait()
