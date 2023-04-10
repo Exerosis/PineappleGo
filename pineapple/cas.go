@@ -19,6 +19,7 @@ func (cas Cas) Modify(value []byte) []byte {
 		return cas.next
 	}
 	return value
+
 }
 func (cas Cas) Marshal() ([]byte, error) {
 	var expected = len(cas.expected)
