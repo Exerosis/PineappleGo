@@ -64,7 +64,7 @@ func run() error {
 		var start = time.Now()
 		var count = 100_000
 		var group sync.WaitGroup
-		var pipes = pineapple.NewSemaphore(100)
+		var pipes = pineapple.NewSemaphore(25)
 		group.Add(count)
 		for i := 0; i < count; i++ {
 			go func() {
