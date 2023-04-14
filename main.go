@@ -64,22 +64,22 @@ func run() error {
 		var start = time.Now()
 		var count = 100_000
 		var group sync.WaitGroup
-		var pipes = pineapple.NewSemaphore(2)
+		var pipes = pineapple.NewSemaphore(1)
 		group.Add(count)
 		for i := 0; i < count; i++ {
 			go func() {
 				pipes.Acquire()
 				defer pipes.Release()
 				defer group.Done()
-				//reason := node.Write([]byte("world"), []byte("universe"))
-				//if reason != nil {
-				//	panic(reason)
-				//}
-				var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
-				reason = node.ReadModifyWrite([]byte("hello"), cas)
+				reason := node.Write([]byte("world"), []byte("universe"))
 				if reason != nil {
 					panic(reason)
 				}
+				//var cas = pineapple.NewCas([]byte("world"), []byte("universe"))
+				//reason = node.ReadModifyWrite([]byte("hello"), cas)
+				//if reason != nil {
+				//	panic(reason)
+				//}
 			}()
 		}
 		group.Wait()
