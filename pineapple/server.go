@@ -195,7 +195,9 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
+		var lockStart = time.Now()
 		node.leader.Lock()
+		println("Lock: ", time.Since(lockStart).String())
 		var start = time.Now()
 		var readRequest = &ReadRequest{Key: key}
 
