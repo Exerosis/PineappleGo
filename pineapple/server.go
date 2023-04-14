@@ -195,13 +195,15 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
-		node.leader.Lock()
-		var readRequest = &ReadRequest{Key: key}
 		var start = time.Now()
+		node.leader.Lock()
+		println("Took: ", time.Since(start).String())
+		var readRequest = &ReadRequest{Key: key}
+
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
 			return client.Read(ctx, readRequest)
 		})
-		println("Took: ", time.Since(start).String())
+
 		if reason != nil {
 			node.leader.Unlock()
 			return reason
