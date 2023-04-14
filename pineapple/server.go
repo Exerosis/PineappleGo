@@ -197,6 +197,7 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
 		node.leader.Lock()
 		var start = time.Now()
+		defer println("Took: ", time.Since(start).String())
 		var readRequest = &ReadRequest{Key: key}
 
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
@@ -228,7 +229,6 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 			return client.Write(ctx, request)
 		})
-		println("Took: ", time.Since(start).String())
 		return reason
 	} else {
 		serialized, reason := modification.Marshal()
