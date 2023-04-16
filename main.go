@@ -43,6 +43,7 @@ func run() error {
 		"192.168.1.2:2000",
 		"192.168.1.3:2000",
 	}
+	println("test")
 
 	var storage = pineapple.NewStorage()
 	var local = fmt.Sprintf("%s:%d", address, 2000)
