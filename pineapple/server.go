@@ -104,6 +104,7 @@ func query[Type Modification, Result any](
 			if reason == nil {
 				responses = append(responses, response)
 				if len(responses) >= int(node.majority) {
+					println("Cancelling")
 					cancel()
 				}
 			} else {
