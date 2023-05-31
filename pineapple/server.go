@@ -23,7 +23,7 @@ type Modification interface {
 
 type Node[Type Modification] interface {
 	Read(key []byte) ([]byte, error)
-	Write(key []byte, value []byte) error
+	Write(key []byte, value []byte) ([]byte, error)
 	ReadModifyWrite(key []byte, modification Type) error
 	Run() error
 	Connect() error
@@ -170,28 +170,28 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	}
 	return write.Value, nil
 }
-func (node *node[Type]) Write(key []byte, value []byte) error {
-	var request = &PeekRequest{Key: key}
-	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
-		return client.Peek(ctx, request)
+func (node *node[Type]) Write(key []byte, value []byte) ([]byte, error) {
+	var request = &ReadRequest{Key: key}
+	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
+		return client.Read(ctx, request)
 	})
 	if reason != nil {
-		return reason
+		return nil, reason
 	}
 
-	responses = append(responses, &PeekResponse{
+	responses = append(responses, &ReadResponse{
 		Tag: node.server.Storage.Peek(key),
 	})
-	var max = max(responses, GreaterTag, (*PeekResponse).GetTag)
+	var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
 	})
 	if reason != nil {
-		return reason
+		return nil, reason
 	}
-	return nil
+	return max.Value, nil
 }
 
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
