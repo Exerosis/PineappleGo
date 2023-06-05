@@ -99,13 +99,11 @@ func query[Type Modification, Result any](
 	var responses []Result
 	for i, client := range node.clients {
 		go func(i int, client NodeClient) {
-			println("Client: ", client != nil)
 			var response, reason = operation(client, cancellable)
 			lock.Lock()
 			if reason == nil {
 				responses = append(responses, response)
 				if len(responses) >= int(node.majority) {
-					println("Cancelling")
 					cancel()
 				}
 			} else {
