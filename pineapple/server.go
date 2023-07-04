@@ -96,8 +96,7 @@ func query[Type Modification, Result any](
 	var responses = make([]*Result, node.majority)
 	group.Add(int(node.majority))
 	var reasons error
-	for i := 0; i < int(node.majority); i++ {
-		var next = atomic.AddInt32(&node.index, 1)
+	for i := 0; i < len(node.clients); i++ {
 		go func(i int, client NodeClient) {
 			var response, reason = operation(client, parent)
 			if reason != nil {
@@ -105,7 +104,7 @@ func query[Type Modification, Result any](
 			}
 			responses[i] = &response
 			group.Done()
-		}(i, node.clients[next%int32(node.majority)])
+		}(i, node.clients[i])
 	}
 	group.Wait()
 	if reasons != nil {
