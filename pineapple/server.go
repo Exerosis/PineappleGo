@@ -105,7 +105,7 @@ func query[Type Modification, Result any](
 			}
 			responses[i] = &response
 			group.Done()
-		}(i, node.clients[next])
+		}(i, node.clients[next%int32(node.majority)])
 	}
 	group.Wait()
 	if reasons != nil {
