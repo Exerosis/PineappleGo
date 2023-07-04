@@ -151,9 +151,20 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	if reason != nil {
 		return nil, reason
 	}
-	localRevision, localValue := node.server.Storage.Get(key)
+	localTag, localValue := node.server.Storage.Get(key)
+	//FIXME swap to one iteration
+	var same = true
+	for _, response := range responses {
+		if localTag != response.Tag {
+			same = false
+			break
+		}
+	}
+	if same {
+		return localValue, nil
+	}
 	responses = append(responses, &ReadResponse{
-		Tag:   NewTag(localRevision, node.identifier),
+		Tag:   NewTag(localTag, node.identifier),
 		Value: localValue,
 	})
 	var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
@@ -167,15 +178,14 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	return write.Value, nil
 }
 func (node *node[Type]) Write(key []byte, value []byte) error {
-	//var request = &PeekRequest{Key: key}
-	//responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
-	//	return client.Peek(ctx, request)
-	//})
-	//if reason != nil {
-	//	return reason
-	//}
-	var reason error
-	var responses []*PeekResponse
+	var request = &PeekRequest{Key: key}
+	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
+		return client.Peek(ctx, request)
+	})
+	if reason != nil {
+		return reason
+	}
+
 	responses = append(responses, &PeekResponse{
 		Tag: node.server.Storage.Peek(key),
 	})
