@@ -167,14 +167,15 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	return write.Value, nil
 }
 func (node *node[Type]) Write(key []byte, value []byte) error {
-	var request = &PeekRequest{Key: key}
-	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
-		return client.Peek(ctx, request)
-	})
-	if reason != nil {
-		return reason
-	}
-
+	//var request = &PeekRequest{Key: key}
+	//responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
+	//	return client.Peek(ctx, request)
+	//})
+	//if reason != nil {
+	//	return reason
+	//}
+	var reason error
+	var responses []*PeekResponse
 	responses = append(responses, &PeekResponse{
 		Tag: node.server.Storage.Peek(key),
 	})
