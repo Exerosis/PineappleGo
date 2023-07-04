@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	. "github.com/exerosis/PineappleGo/rpc"
-	"go.uber.org/multierr"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"net"
@@ -42,6 +41,7 @@ type node[Type Modification] struct {
 	clients    []NodeClient
 	identifier uint8
 	majority   uint16
+	index      int32
 	connected  atomic.Bool
 }
 
@@ -67,6 +67,7 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 		make([]NodeClient, len(others)),
 		uint8(identifier),
 		uint16((len(addresses) / 2) + 1),
+		0,
 		atomic.Bool{},
 	}
 	node.server = &server{
@@ -92,34 +93,31 @@ func query[Type Modification, Result any](
 	operation func(client NodeClient, cancellable context.Context) (Result, error),
 ) ([]Result, error) {
 	var group sync.WaitGroup
-	var lock = sync.Mutex{}
-	group.Add(len(node.clients))
+	var responses = make([]Result, node.majority)
+	group.Add(int(node.majority))
 	var reasons error
-	cancellable, cancel := context.WithCancel(parent)
-	var responses []Result
-	for i, client := range node.clients {
+	for i := 0; i < int(node.majority); i++ {
+		var next = atomic.AddInt32(&node.index, 1)
 		go func(i int, client NodeClient) {
-			var response, reason = operation(client, cancellable)
-			lock.Lock()
-			if reason == nil {
-				responses = append(responses, response)
-				if len(responses) >= int(node.majority) {
-					cancel()
-				}
-			} else {
-				reasons = multierr.Append(reasons, reason)
-				cancel()
+			var response, reason = operation(client, parent)
+			if reason != nil {
+				panic(reason)
 			}
-			lock.Unlock()
+			responses[i] = response
 			group.Done()
-		}(i, client)
+		}(i, node.clients[next])
 	}
 	group.Wait()
-	cancel()
 	if reasons != nil {
 		return nil, reasons
 	}
-	return responses, nil
+	var filtered []Result
+	for _, response := range responses {
+		if response != nil {
+			filtered = append(filtered, response)
+		}
+	}
+	return filtered, nil
 }
 
 func max[Type any, Extracted any](
