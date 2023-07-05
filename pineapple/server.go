@@ -163,6 +163,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	if same {
 		return localValue, nil
 	}
+	panic("Should not be a factor here!")
 	responses = append(responses, &ReadResponse{
 		Tag:   NewTag(GetRevision(localTag), node.server.identifier),
 		Value: localValue,
