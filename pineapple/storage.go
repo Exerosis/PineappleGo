@@ -21,21 +21,21 @@ type storage struct {
 }
 
 func (s *storage) Get(key []byte) (Tag, []byte) {
-	//s.lock.RLock()
-	//defer s.lock.RUnlock()
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	var tag = s.backing[string(key)]
 	return tag.tag, tag.value
 }
 
 func (s *storage) Peek(key []byte) Tag {
-	//s.lock.RLock()
-	//defer s.lock.RUnlock()
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 	return s.backing[string(key)].tag
 }
 
 func (s *storage) Set(key []byte, tag Tag, value []byte) {
-	//s.lock.Lock()
-	//defer s.lock.Unlock()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	s.backing[string(key)] = entry{value, tag}
 }
 
