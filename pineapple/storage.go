@@ -1,6 +1,8 @@
 package pineapple
 
-import "sync"
+import (
+	"sync"
+)
 
 type Storage interface {
 	Get(key []byte) (tag Tag, value []byte)
@@ -43,15 +45,17 @@ func NewStorage() Storage {
 
 type Tag = uint64
 
+const NONE = 0
+
 func GetRevision(tag Tag) uint64 {
-	// Mask the first 16 bits of the uint64 to get the tag number
-	return tag >> 48
+	return tag >> 8
 }
 func GetIdentifier(tag Tag) uint8 {
-	// Mask the last 8 bits of the uint64 to get the identifier
 	return uint8(tag)
 }
 func NewTag(revision uint64, identifier uint8) Tag {
-	// Shift the tag number left by 48 bits and add the identifier
-	return (revision << 48) | uint64(identifier)
+	if identifier == 0 {
+		panic("Invalid tag, identifier too small!")
+	}
+	return (revision << 8) | uint64(identifier)
 }

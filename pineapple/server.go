@@ -31,18 +31,18 @@ type Node[Type Modification] interface {
 type server struct {
 	UnimplementedNodeServer
 	Storage
-	rmw func([]byte, []byte) error
+	identifier uint8
+	rmw        func([]byte, []byte) error
 }
 type node[Type Modification] struct {
-	address    string
-	others     []string
-	leader     *sync.Mutex
-	server     *server
-	clients    []NodeClient
-	identifier uint8
-	majority   uint16
-	index      int32
-	connected  atomic.Bool
+	address   string
+	others    []string
+	leader    *sync.Mutex
+	server    *server
+	clients   []NodeClient
+	majority  uint16
+	index     int32
+	connected atomic.Bool
 }
 
 func NewNode[Type Modification](storage Storage, address string, addresses []string) Node[Type] {
@@ -52,7 +52,7 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 		if other != address {
 			others = append(others, other)
 		} else {
-			identifier = i
+			identifier = i + 1
 		}
 	}
 	var leader *sync.Mutex = nil
@@ -65,13 +65,13 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 		leader,
 		nil,
 		make([]NodeClient, len(others)),
-		uint8(identifier),
 		uint16((len(addresses) / 2) + 1),
 		0,
 		atomic.Bool{},
 	}
 	node.server = &server{
-		Storage: storage,
+		Storage:    storage,
+		identifier: uint8(identifier),
 		rmw: func(key []byte, request []byte) error {
 			for !node.connected.Load() {
 				time.Sleep(time.Millisecond)
@@ -164,7 +164,7 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 		return localValue, nil
 	}
 	responses = append(responses, &ReadResponse{
-		Tag:   NewTag(localTag, node.identifier),
+		Tag:   NewTag(GetRevision(localTag), node.server.identifier),
 		Value: localValue,
 	})
 	var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
@@ -190,7 +190,7 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		Tag: node.server.Storage.Peek(key),
 	})
 	var max = max(responses, GreaterTag, (*PeekResponse).GetTag)
-	var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
+	var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
@@ -217,9 +217,9 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			node.leader.Unlock()
 			return reason
 		}
-		localRevision, localValue := node.server.Storage.Get(key)
+		localTag, localValue := node.server.Storage.Get(key)
 		responses = append(responses, &ReadResponse{
-			Tag:   NewTag(localRevision, node.identifier),
+			Tag:   NewTag(GetRevision(localTag), node.server.identifier),
 			Value: localValue,
 		})
 		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
@@ -231,7 +231,7 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			return nil
 		}
 		println("better not be getting here")
-		var tag = NewTag(GetRevision(max.Tag)+1, node.identifier)
+		var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
 		var request = &WriteRequest{Key: key, Tag: tag, Value: next}
 		node.server.Storage.Set(key, tag, next)
 		//we can let the next RMW get handled once we have done a storage set.
@@ -286,12 +286,22 @@ func (node *node[Type]) Connect() error {
 
 func (server *server) Read(_ context.Context, request *ReadRequest) (*ReadResponse, error) {
 	tag, value := server.Get(request.Key)
+	if tag == NONE {
+		tag = NewTag(0, server.identifier)
+	}
 	return &ReadResponse{Tag: tag, Value: value}, nil
 }
 func (server *server) Peek(_ context.Context, request *PeekRequest) (*PeekResponse, error) {
-	return &PeekResponse{Tag: server.Storage.Peek(request.Key)}, nil
+	var tag = server.Storage.Peek(request.Key)
+	if tag == NONE {
+		tag = NewTag(0, server.identifier)
+	}
+	return &PeekResponse{Tag: tag}, nil
 }
 func (server *server) Write(_ context.Context, request *WriteRequest) (*WriteResponse, error) {
+	if request.Tag == NONE {
+		panic("Writing data without a tag.")
+	}
 	var current = server.Storage.Peek(request.Key)
 	if GreaterTag(current, request.Tag) {
 		server.Set(request.Key, request.Tag, request.Value)
