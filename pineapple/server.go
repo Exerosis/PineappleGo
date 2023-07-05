@@ -112,9 +112,8 @@ func query[Type Modification, Result any](
 	operation func(client NodeClient, cancellable context.Context) (Result, error),
 ) ([]Result, error) {
 	var group sync.WaitGroup
-	var responses = make([]*Result, node.majority)
+	var responses = make([]*Result, len(node.clients))
 	group.Add(int(node.majority))
-	var reasons error
 	for i := 0; i < len(node.clients); i++ {
 		go func(i int, client NodeClient) {
 			var response, reason = operation(client, parent)
@@ -126,10 +125,8 @@ func query[Type Modification, Result any](
 		}(i, node.clients[i])
 	}
 	group.Wait()
-	if reasons != nil {
-		return nil, reasons
-	}
 	var filtered []Result
+	//do we need to limit this to majorty.
 	for _, response := range responses {
 		if response != nil {
 			filtered = append(filtered, *response)
