@@ -122,7 +122,7 @@ func query[Type Modification, Result any](
 				panic(reason)
 			}
 			responses[i] = &response
-			if atomic.AddUint32(&count, 1) < uint32(node.majority) {
+			if atomic.AddUint32(&count, 1) <= uint32(node.majority) {
 				group.Done()
 			}
 		}(i, node.clients[i])
