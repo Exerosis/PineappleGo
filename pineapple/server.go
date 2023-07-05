@@ -34,12 +34,30 @@ type server struct {
 	identifier uint8
 	rmw        func([]byte, []byte) error
 }
+type client struct {
+	server *server
+}
+
+func (c *client) Read(ctx context.Context, in *ReadRequest, opts ...grpc.CallOption) (*ReadResponse, error) {
+	return c.server.Read(ctx, in)
+}
+func (c *client) Peek(ctx context.Context, in *PeekRequest, opts ...grpc.CallOption) (*PeekResponse, error) {
+	return c.server.Peek(ctx, in)
+}
+func (c *client) Write(ctx context.Context, in *WriteRequest, opts ...grpc.CallOption) (*WriteResponse, error) {
+	return c.server.Write(ctx, in)
+}
+func (c *client) Modify(ctx context.Context, in *ModifyRequest, opts ...grpc.CallOption) (*ModifyResponse, error) {
+	return c.server.Modify(ctx, in)
+}
+
 type node[Type Modification] struct {
 	address   string
 	others    []string
 	leader    *sync.Mutex
 	server    *server
 	clients   []NodeClient
+	client    *client
 	majority  uint16
 	index     int32
 	connected atomic.Bool
@@ -64,7 +82,8 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 		others,
 		leader,
 		nil,
-		make([]NodeClient, len(others)),
+		make([]NodeClient, len(others)+1),
+		nil,
 		uint16((len(addresses) / 2) + 1),
 		0,
 		atomic.Bool{},
@@ -151,32 +170,23 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	if reason != nil {
 		return nil, reason
 	}
-	localTag, localValue := node.server.Storage.Get(key)
 	//FIXME swap to one iteration
-	var same = true
-	for _, response := range responses {
-		if localTag != response.Tag {
-			same = false
-			break
+	var first = responses[0]
+	for i := 1; i < len(responses); i++ {
+		if responses[i].Tag != first.Tag {
+			panic("Should not be a factor here!")
+			var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
+			var write = &WriteRequest{Key: key, Tag: max.Tag, Value: max.Value}
+			_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
+				return client.Write(ctx, write)
+			})
+			if reason != nil {
+				return nil, reason
+			}
+			return write.Value, nil
 		}
 	}
-	if same {
-		return localValue, nil
-	}
-	panic("Should not be a factor here!")
-	responses = append(responses, &ReadResponse{
-		Tag:   NewTag(GetRevision(localTag), node.server.identifier),
-		Value: localValue,
-	})
-	var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
-	var write = &WriteRequest{Key: key, Tag: max.Tag, Value: max.Value}
-	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
-		return client.Write(ctx, write)
-	})
-	if reason != nil {
-		return nil, reason
-	}
-	return write.Value, nil
+	return first.Value, nil
 }
 func (node *node[Type]) Write(key []byte, value []byte) error {
 	var request = &PeekRequest{Key: key}
@@ -187,9 +197,6 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		return reason
 	}
 
-	responses = append(responses, &PeekResponse{
-		Tag: node.server.Storage.Peek(key),
-	})
 	var max = max(responses, GreaterTag, (*PeekResponse).GetTag)
 	var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
@@ -213,16 +220,10 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
 			return client.Read(ctx, readRequest)
 		})
-
 		if reason != nil {
 			node.leader.Unlock()
 			return reason
 		}
-		localTag, localValue := node.server.Storage.Get(key)
-		responses = append(responses, &ReadResponse{
-			Tag:   NewTag(GetRevision(localTag), node.server.identifier),
-			Value: localValue,
-		})
 		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 		var next = modification.Modify(max.Value)
 		//hyper-speed path
@@ -234,6 +235,7 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		println("better not be getting here")
 		var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
 		var request = &WriteRequest{Key: key, Tag: tag, Value: next}
+		//FIXME we can look at this when wer get here.
 		node.server.Storage.Set(key, tag, next)
 		//we can let the next RMW get handled once we have done a storage set.
 		node.leader.Unlock()
@@ -281,6 +283,7 @@ func (node *node[Type]) Connect() error {
 		}
 		node.clients[i] = NewNodeClient(connection)
 	}
+	node.clients[len(node.others)] = &client{node.server}
 	node.connected.Store(true)
 	return nil
 }
