@@ -211,10 +211,7 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
-		//var lockStart = time.Now()
 		node.leader.Lock()
-		//println("Lock: ", time.Since(lockStart).String())
-		var start = time.Now()
 		var readRequest = &ReadRequest{Key: key}
 
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
@@ -228,11 +225,9 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 		var next = modification.Modify(max.Value)
 		//hyper-speed path
 		if bytes.Equal(max.Value, next) {
-			println("Took: ", time.Since(start).String())
 			node.leader.Unlock()
 			return nil
 		}
-		println("better not be getting here")
 		var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
 		var request = &WriteRequest{Key: key, Tag: tag, Value: next}
 		//FIXME we can look at this when wer get here.
