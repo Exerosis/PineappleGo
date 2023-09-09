@@ -174,7 +174,6 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 	var first = responses[0]
 	for i := 1; i < len(responses); i++ {
 		if responses[i].Tag != first.Tag {
-			panic("Should not be a factor here!")
 			var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 			var write = &WriteRequest{Key: key, Tag: max.Tag, Value: max.Value}
 			_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
