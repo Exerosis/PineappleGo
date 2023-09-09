@@ -63,7 +63,7 @@ type node[Type Modification] struct {
 	connected atomic.Bool
 }
 
-func NewNode[Type Modification](storage Storage, address string, addresses []string) Node[Type] {
+func NewNode[Type Modification](storage Storage, address string, addresses []string, factory func() Type) Node[Type] {
 	var others []string
 	var identifier = 0
 	for i, other := range addresses {
@@ -95,7 +95,7 @@ func NewNode[Type Modification](storage Storage, address string, addresses []str
 			for !node.connected.Load() {
 				time.Sleep(time.Millisecond)
 			}
-			var modification Type
+			var modification = factory()
 			var reason = modification.Unmarshal(request)
 			if reason != nil {
 				return reason
@@ -211,9 +211,9 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
-		var lockStart = time.Now()
+		//var lockStart = time.Now()
 		node.leader.Lock()
-		println("Lock: ", time.Since(lockStart).String())
+		//println("Lock: ", time.Since(lockStart).String())
 		var start = time.Now()
 		var readRequest = &ReadRequest{Key: key}
 
