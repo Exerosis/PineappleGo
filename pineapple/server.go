@@ -211,14 +211,15 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
 		var readRequest = &ReadRequest{Key: key}
+		node.leader.Lock()
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
 			return client.Read(ctx, readRequest)
 		})
 		if reason != nil {
-			//node.leader.Unlock()
+			node.leader.Unlock()
 			return reason
 		}
-		node.leader.Lock()
+
 		t2, v2 := node.server.Storage.Get(key)
 		responses = append(responses, &ReadResponse{Tag: t2, Value: v2})
 		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
