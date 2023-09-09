@@ -211,7 +211,6 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 	if node.leader != nil {
 		var readRequest = &ReadRequest{Key: key}
-
 		responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*ReadResponse, error) {
 			return client.Read(ctx, readRequest)
 		})
@@ -219,8 +218,11 @@ func (node *node[Type]) ReadModifyWrite(key []byte, modification Type) error {
 			//node.leader.Unlock()
 			return reason
 		}
-		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
 		node.leader.Lock()
+		t2, v2 := node.server.Storage.Get(key)
+		responses = append(responses, &ReadResponse{Tag: t2, Value: v2})
+		var max = max(responses, GreaterTag, (*ReadResponse).GetTag)
+
 		var next = modification.Modify(max.Value)
 		//hyper-speed path
 		if bytes.Equal(max.Value, next) {
