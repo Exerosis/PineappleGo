@@ -196,6 +196,10 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 		return reason
 	}
 
+	_, _ = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
+		return client.Peek(ctx, request)
+	})
+
 	var max = max(responses, GreaterTag, (*PeekResponse).GetTag)
 	var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
