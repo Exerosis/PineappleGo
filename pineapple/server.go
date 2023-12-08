@@ -192,6 +192,9 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
 		return client.Peek(ctx, request)
 	})
+	_, _ = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
+		return client.Peek(ctx, request)
+	})
 	if reason != nil {
 		return reason
 	}
