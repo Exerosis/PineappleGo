@@ -71,7 +71,7 @@ func run() error {
 				pipes.Acquire()
 				defer pipes.Release()
 				defer group.Done()
-				_, reason := node.Write([]byte("world"), []byte("universe"))
+				reason := node.Write([]byte("world"), []byte("universe"))
 				if reason != nil {
 					panic(reason)
 				}
