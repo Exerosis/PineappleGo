@@ -189,11 +189,11 @@ func (node *node[Type]) Read(key []byte) ([]byte, error) {
 }
 func (node *node[Type]) Write(key []byte, value []byte) error {
 	var request = &PeekRequest{Key: key}
-	println("\nWrite start")
+	//println("\nWrite start")
 	responses, reason := query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
 		return client.Peek(ctx, request)
 	})
-	println("First RTT")
+	//println("First RTT")
 	//_, _ = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*PeekResponse, error) {
 	//	return client.Peek(ctx, request)
 	//})
@@ -203,17 +203,17 @@ func (node *node[Type]) Write(key []byte, value []byte) error {
 
 	var max = max(responses, GreaterTag, (*PeekResponse).GetTag)
 	var tag = NewTag(GetRevision(max.Tag)+1, node.server.identifier)
-	println("Got tag")
+	//println("Got tag")
 	var write = &WriteRequest{Key: key, Tag: tag, Value: value}
 	_, reason = query(node, context.Background(), func(client NodeClient, ctx context.Context) (*WriteResponse, error) {
 		return client.Write(ctx, write)
 	})
-	println("Second RTT")
+	//println("Second RTT")
 	if reason != nil {
 		return reason
 	}
 
-	println("Write Completed")
+	//println("Write Completed")
 	return nil
 }
 
